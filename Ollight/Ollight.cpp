@@ -611,8 +611,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
 HRESULT CALLBACK NewODWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	POINT pt;
-	if (uMsg == 0x210)
-	{
+	if (uMsg == WM_PARENTNOTIFY)
+	{ // 子窗口中有消息产生
+
 		GetCursorPos(&pt);
 		ScreenToClient(g_pdOllyCpu->table.hparent,&pt);
 		SetXy(g_pdOllyCpu->table.hparent,pt.x,pt.y);
