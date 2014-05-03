@@ -639,7 +639,12 @@ HRESULT CALLBACK NewODWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{ // 子窗口中鼠标左键被按下
 
 			GetCursorPos(&pt);
+			wchar_t buf[256];
+			wsprintf(buf, L"(%u, %u)", pt.x, pt.y);
+			OutputDebugString(buf);
 			ScreenToClient(g_pdOllyCpu->table.hparent,&pt);
+			wsprintf(buf, L"0x%x(%u, %u)\n", g_pdOllyCpu->table.hparent, pt.x, pt.y);
+			OutputDebugString(buf);
 			SetXy(g_pdOllyCpu->table.hparent,pt.x,pt.y);
 		}
 	}
