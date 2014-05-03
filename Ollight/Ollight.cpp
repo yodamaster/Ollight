@@ -287,9 +287,30 @@ DWORD GetCurMousePosWordW(HDC hDC, LPCWSTR lpWideCharStr, INT cbWideChars, int x
 	}
 	return dwResult;	
 }
-
 BOOL WINAPI NewExtTextOutW( HDC hdc, int x, int y, UINT options, CONST RECT * lprect, LPCWSTR lpString,  UINT c, CONST INT * lpDx)
 {
+	wchar_t buf[1024];
+	wchar_t options_text[1024] = {0};
+	if(options & ETO_OPAQUE)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_OPAQUE|");
+	if(options & ETO_CLIPPED)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_CLIPPED|");
+	if(options & ETO_GLYPH_INDEX)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_GLYPH_INDEX|");
+	if(options & ETO_RTLREADING)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_RTLREADING|");
+	if(options & ETO_NUMERICSLOCAL)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_NUMERICSLOCAL|");
+	if(options & ETO_NUMERICSLATIN)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_NUMERICSLATIN|");
+	if(options & ETO_IGNORELANGUAGE)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_IGNORELANGUAGE|");
+	if(options & ETO_PDY)
+		wcscat_s(options_text, ARRAYSIZE(options_text), L"ETO_PDY|");
+
+	wsprintf(buf, L"hdc=0x%x, x=%u, y=%u, options=0x%x(%s), lprect=0x%p(%u,%u,%u,%u), lpString=%s\n",
+		hdc, x, y, options, options_text, lprect, lprect?lprect->left:0, lprect?lprect->top:0, lprect?lprect->right-lprect->left:0, lprect?lprect->bottom-lprect->top:0, lpString);
+	OutputDebugString(buf);
 	POINT pt;
 	HWND  hWDC;
 	HWND  hWPT;
