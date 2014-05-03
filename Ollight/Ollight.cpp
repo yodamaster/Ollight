@@ -27,7 +27,7 @@ BOOL		g_bRecAllRect = FALSE;
 RECT		g_rcTotalRect = {0, 0, 0, 0,};
 TEXTMETRIC	g_tm = {0};
 
-wchar_t g_HighLigthWord[1024] = {0};
+wchar_t g_HighLigthWord[1024] = {0}; // 需要被高亮显示的字符串(鼠标左键单击汇编码窗口时, 位于鼠标指针之下的文本串)
 
 #define HAS_CURMOUSEWORD  1
 #define NO_CURMOUSEWORD   0
@@ -328,9 +328,9 @@ BOOL WINAPI NewExtTextOutW( HDC hdc, int x, int y, UINT options, CONST RECT * lp
 		c > 1 && 
 		IsAsmInstruction((wchar_t *)lpString, c))
 	{
-		g_nTextAlign = GetTextAlign(hdc);
-		GetCurrentPositionEx(hdc, &g_CurPos);
-		GetTextMetrics(hdc, &g_tm);
+		g_nTextAlign = GetTextAlign(hdc); // 在矩形区域内输出文本时, 文本的对齐方式
+		GetCurrentPositionEx(hdc, &g_CurPos); // 取得当前画笔的输出位置(文本会输出到此位置)
+		GetTextMetrics(hdc, &g_tm); // 取得当前字体的信息
 		g_dwDCOrg.x = 0;
 		g_dwDCOrg.y = 0;
 		g_bRecAllRect = FALSE;
@@ -381,8 +381,11 @@ extc int __cdecl ODBG2_Pluginquery(int ollydbgversion, ulong *features, wchar_t 
 
 void HookDrawFunc(DWORD TargetProc, DWORD NewProc)
 {
+	// 写入一个字节到TargetProc指向的位置
 	BYTE JMP = 0xE9;
 	WriteProcessMemory(GetCurrentProcess(), (LPVOID)TargetProc, &JMP, sizeof(JMP), NULL);
+
+	// 写入4个字节到TargetProc+1指向的位置
 	DWORD offset = NewProc - TargetProc - 5;
 	WriteProcessMemory(GetCurrentProcess(), (LPVOID)(TargetProc + 1), &offset, sizeof(offset), NULL);
 };
@@ -405,10 +408,10 @@ void __cdecl DrawColor(char *pbColor, wchar_t *pwCode)
 	int iStart = 0;
 	int iEnd = 0;
 	wchar_t wTempCode[512] = {0};
-	int iCodeLen = _tcslen(pwCode);
+	int iCodeLen = _tcslen(pwCode); // 计算要显示的文本的长度(以字符为单位)
 	_tcsncpy_s(wTempCode, 512, pwCode, iCodeLen);
-	_tcsupr_s(wTempCode,  iCodeLen + 1);
-	int iHighLigthLen = _tcslen(g_HighLigthWord);
+	_tcsupr_s(wTempCode,  iCodeLen + 1); // 转换大小写: 小写 => 大写
+	int iHighLigthLen = _tcslen(g_HighLigthWord); // 计算要被高亮的字符串的长度
 	wchar_t *pwcStart = _tcsstr(wTempCode, g_HighLigthWord);
 	if (iCodeLen < 1 || pwcStart == NULL || iHighLigthLen == 0)
 	{
@@ -450,25 +453,25 @@ _declspec(naked) void __cdecl ExtendDrawFunc()
 	__asm{
 		PUSHAD
 		PUSHFD
-		CMP BYTE PTR SS:[EBP+0x1C],02
+		CMP BYTE PTR SS:[EBP+0x1C],02  // 要显示的列(0x02表示第3列); ebp+0x1c指向第6个参数(int column)
 		JNE NOCOLOR
-		MOV ECX,DWORD PTR SS:[EBP+0x14]
-		MOV EAX,DWORD PTR DS:[ECX+0x10]
-		CMP EAX,0x006D0073			//判断当前窗口标题是否为 CPU Disasm，只比较了sm
+		MOV ECX,DWORD PTR SS:[EBP+0x14] // ebp+0x14指向第4个参数(struct t_table* pt)
+		MOV EAX,DWORD PTR DS:[ECX+0x10] // ecx指向t_table::name, ecx+0x10指向t_table::name的第0x11个字节
+		CMP EAX,0x006D0073			//判断当前窗口标题是否为 "CPU Disasm"，只比较了"sm" (注: 字符串是unicode编码的)
 		JNE NOCOLOR
-		MOV ECX,DWORD PTR SS:[EBP+0x8] //Code
+		MOV ECX,DWORD PTR SS:[EBP+0x8] // 要显示的文本(第3列文本是汇编代码). ebp+0x08指向第1个参数(wchar_t* s)
 		PUSH ECX
-		MOV ECX,DWORD PTR SS:[EBP+0xC] //Color
+		MOV ECX,DWORD PTR SS:[EBP+0xC] //Color; ebp+0x0c指向第2个参数(uchar* mask)
 		PUSH ECX
 		CALL DrawColor
 		ADD ESP,0x8
 NOCOLOR:
 		POPFD
 		POPAD
-		POP EBX
-		MOV ESP,EBP
-		POP EBP
-		RETN
+		POP EBX // hook 时被覆盖掉的5B
+		MOV ESP,EBP // hook 时被覆盖掉的8B E5
+		POP EBP // hook 时被覆盖掉的5D
+		RETN // hook 时被覆盖掉的C3
 	}
 };
 
@@ -624,24 +627,28 @@ extc int __cdecl ODBG2_Plugininit(void)
 {
 	DRAWFUNC *pfunCpuDraw = NULL;
 
+	// 修改ollydbg主窗口的消息处理函数
 	g_wndProc = (WNDPROC)SetWindowLong (hwollymain, GWL_WNDPROC, (LONG)NewODWndProc);
+
+	// 调用原来的消息处理函数
 	CallWindowProc(g_wndProc, hwollymain, WM_COMMAND, OD_VIEW_CPU, 0);
-	g_pdOllyCpu = Getcpudisasmdump();
-	g_ptabCpuDisasm = Getcpudisasmtable();
-	pfunCpuDraw = g_ptabCpuDisasm->drawfunc;
+
+	g_pdOllyCpu = Getcpudisasmdump(); // g_pdOllyCpu指向ollydbg.exe中005E63AC处
+	g_ptabCpuDisasm = Getcpudisasmtable(); // g_ptabCpuDisam指向ollydbg.exe中005E63C4处
+	pfunCpuDraw = g_ptabCpuDisasm->drawfunc; // pfunCpuDraw指向ollydbg.exe中004B9064处
 	if (pfunCpuDraw == NULL)
 	{
 		Message(0,L"Can't get cpu disasm table and drawfunc pointer.");
 		return -1;
 	}
-	char *pbMachineCode = (char *)pfunCpuDraw + 0x419B;
+	char *pbMachineCode = (char *)pfunCpuDraw + 0x419B; // pbMachineCode指向ollydbg.exe中004BD1FF处
 	if (pbMachineCode[0] == 0x5B &&
 		pbMachineCode[1] == 0x8B &&
 		pbMachineCode[2] == 0xE5 &&
 		pbMachineCode[3] == 0x5D &&
 		pbMachineCode[4] == 0xC3 )
 	{
-		g_dwHookDrawFuncAddr = (DWORD)pfunCpuDraw + 0x419B;
+		g_dwHookDrawFuncAddr = (DWORD)pfunCpuDraw + 0x419B; // g_dwHookDrawFuncAddr指向ollydbg.exe中004BD1FF处
 
 		DWORD dwFirstRun = 0;
 		Getfromini(NULL, PLUGINNAME, L"First Run Ollight", L"%d", &dwFirstRun);
