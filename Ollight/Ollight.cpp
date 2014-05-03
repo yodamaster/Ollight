@@ -478,7 +478,7 @@ BOOL SetXy(HWND hWnd,int x,int y)
 	g_CurMousePos.y = y;
 	g_AllowFind = TRUE;
 	Updatetable(&g_pdOllyCpu->table,TRUE);
-	Updatetable(&g_pdOllyCpu->table,TRUE);
+	// Updatetable(&g_pdOllyCpu->table,TRUE);
 	return TRUE;
 }
 
