@@ -614,9 +614,13 @@ HRESULT CALLBACK NewODWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 	if (uMsg == WM_PARENTNOTIFY)
 	{ // 子窗口中有消息产生
 
-		GetCursorPos(&pt);
-		ScreenToClient(g_pdOllyCpu->table.hparent,&pt);
-		SetXy(g_pdOllyCpu->table.hparent,pt.x,pt.y);
+		if(LOWORD(wParam) == WM_LBUTTONDOWN)
+		{ // 子窗口中鼠标左键被按下
+
+			GetCursorPos(&pt);
+			ScreenToClient(g_pdOllyCpu->table.hparent,&pt);
+			SetXy(g_pdOllyCpu->table.hparent,pt.x,pt.y);
+		}
 	}
 	return CallWindowProc(g_wndProc, hwnd, uMsg, wParam, lParam);
 }
